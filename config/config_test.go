@@ -9,14 +9,10 @@ import (
 
 func TestLoadConfig(t *testing.T) {
     dir, err := ioutil.TempDir(os.TempDir(), "config")
-    if err != nil {
-        t.Fatal(err)
-    }
+    assert.Nil(t, err)
     defer func() {
         err := os.RemoveAll(dir)
-        if err != nil {
-            t.Fatal(err)
-        }
+        assert.Nil(t, err)
     }()
     config := `
 production:
@@ -40,14 +36,16 @@ test:
     Candidates = []string { configPath }
 
     os.Setenv("PAGES_ENV", "production")
-    LoadConfig()
-    assert.EqualValues(t, CurrentConfig.Sshd.ListenHost, "configdb")
-    assert.EqualValues(t, CurrentConfig.Sshd.ListenPort, 22)
-    assert.EqualValues(t, CurrentConfig.Sshd.PrivateKey, "PRIVATEKEYPRIVATEKEYPRIVATEKEY1")
+    err = LoadConfig()
+    assert.Nil(t, err)
+    assert.EqualValues(t, Current.Sshd.ListenHost, "configdb")
+    assert.EqualValues(t, Current.Sshd.ListenPort, 22)
+    assert.EqualValues(t, Current.Sshd.PrivateKey, "PRIVATEKEYPRIVATEKEYPRIVATEKEY1")
 
     os.Setenv("PAGES_ENV", "development")
-    LoadConfig()
-    assert.EqualValues(t, CurrentConfig.Sshd.ListenHost, "localhost")
-    assert.EqualValues(t, CurrentConfig.Sshd.ListenPort, 2200)
-    assert.EqualValues(t, CurrentConfig.Sshd.PrivateKey, "PRIVATEKEYPRIVATEKEYPRIVATEKEY2")
+    err = LoadConfig()
+    assert.Nil(t, err)
+    assert.EqualValues(t, Current.Sshd.ListenHost, "localhost")
+    assert.EqualValues(t, Current.Sshd.ListenPort, 2200)
+    assert.EqualValues(t, Current.Sshd.PrivateKey, "PRIVATEKEYPRIVATEKEYPRIVATEKEY2")
 }
