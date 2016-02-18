@@ -1,20 +1,21 @@
 package config
 
 import (
-    "os"
-    "io/ioutil"
-    "testing"
-    "gopkg.in/stretchr/testify.v1/assert"
+	"io/ioutil"
+	"os"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestLoadConfig(t *testing.T) {
-    dir, err := ioutil.TempDir(os.TempDir(), "config")
-    assert.Nil(t, err)
-    defer func() {
-        err := os.RemoveAll(dir)
-        assert.Nil(t, err)
-    }()
-    config := `
+	dir, err := ioutil.TempDir(os.TempDir(), "config")
+	assert.Nil(t, err)
+	defer func() {
+		err := os.RemoveAll(dir)
+		assert.Nil(t, err)
+	}()
+	config := `
 production:
     sshd:
         host: configdb
@@ -31,21 +32,21 @@ test:
         port: 2201
         private_key: PRIVATEKEYPRIVATEKEYPRIVATEKEY3
     `
-    configPath := dir + "/config.yml"
-    ioutil.WriteFile(configPath, []byte(config), 0600)
-    Candidates = []string { configPath }
+	configPath := dir + "/config.yml"
+	ioutil.WriteFile(configPath, []byte(config), 0600)
+	Candidates = []string{configPath}
 
-    os.Setenv("PAGES_ENV", "production")
-    err = LoadConfig()
-    assert.Nil(t, err)
-    assert.EqualValues(t, Current.Sshd.ListenHost, "configdb")
-    assert.EqualValues(t, Current.Sshd.ListenPort, 22)
-    assert.EqualValues(t, Current.Sshd.PrivateKey, "PRIVATEKEYPRIVATEKEYPRIVATEKEY1")
+	os.Setenv("PAGES_ENV", "production")
+	err = LoadConfig()
+	assert.Nil(t, err)
+	assert.EqualValues(t, Current.Sshd.ListenHost, "configdb")
+	assert.EqualValues(t, Current.Sshd.ListenPort, 22)
+	assert.EqualValues(t, Current.Sshd.PrivateKey, "PRIVATEKEYPRIVATEKEYPRIVATEKEY1")
 
-    os.Setenv("PAGES_ENV", "development")
-    err = LoadConfig()
-    assert.Nil(t, err)
-    assert.EqualValues(t, Current.Sshd.ListenHost, "localhost")
-    assert.EqualValues(t, Current.Sshd.ListenPort, 2200)
-    assert.EqualValues(t, Current.Sshd.PrivateKey, "PRIVATEKEYPRIVATEKEYPRIVATEKEY2")
+	os.Setenv("PAGES_ENV", "development")
+	err = LoadConfig()
+	assert.Nil(t, err)
+	assert.EqualValues(t, Current.Sshd.ListenHost, "localhost")
+	assert.EqualValues(t, Current.Sshd.ListenPort, 2200)
+	assert.EqualValues(t, Current.Sshd.PrivateKey, "PRIVATEKEYPRIVATEKEYPRIVATEKEY2")
 }
