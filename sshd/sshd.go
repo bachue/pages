@@ -19,11 +19,11 @@ import (
 type Server struct {
 	Config       *config.SshdConfig
 	ServerConfig *ssh.ServerConfig
-	Logger       *log_driver.Logger
+	Logger       log_driver.Logger
 	ClientCount  int32
 }
 
-func NewServer(sshdConfig *config.SshdConfig, logger *log_driver.Logger) (*Server, error) {
+func NewServer(sshdConfig *config.SshdConfig, logger log_driver.Logger) (*Server, error) {
 	serverConfig, err := getSshServerConfig(sshdConfig)
 	if err != nil {
 		return nil, err

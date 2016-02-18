@@ -10,8 +10,10 @@ import (
 	conf "github.com/bachue/pages/config"
 )
 
-type Logger struct {
-	logrus.Logger
+type Logger interface {
+	Debugf(format string, args ...interface{})
+	Infof(format string, args ...interface{})
+	Errorf(format string, args ...interface{})
 }
 
 var levels = map[string]logrus.Level{
@@ -34,7 +36,7 @@ var syslogLevels = map[string]syslog.Priority{
 	"EMERG":   syslog.LOG_EMERG,
 }
 
-func New(config *conf.LogConfig) (*Logger, error) {
+func New(config *conf.LogConfig) (Logger, error) {
 	logger := logrus.New()
 	if strings.ToLower(config.Local) == "stderr" {
 		logger.Out = os.Stderr
@@ -57,5 +59,5 @@ func New(config *conf.LogConfig) (*Logger, error) {
 		}
 		logger.Hooks.Add(hook)
 	}
-	return &Logger{*logger}, nil
+	return logger, nil
 }
