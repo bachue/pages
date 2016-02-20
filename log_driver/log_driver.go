@@ -14,6 +14,7 @@ type Logger interface {
 	Debugf(format string, args ...interface{})
 	Infof(format string, args ...interface{})
 	Errorf(format string, args ...interface{})
+	Fatalf(format string, args ...interface{})
 }
 
 var levels = map[string]logrus.Level{
@@ -36,7 +37,7 @@ var syslogLevels = map[string]syslog.Priority{
 	"EMERG":   syslog.LOG_EMERG,
 }
 
-func New(config *conf.LogConfig) (Logger, error) {
+func New(config *conf.Log) (Logger, error) {
 	logger := logrus.New()
 	if strings.ToLower(config.Local) == "stderr" {
 		logger.Out = os.Stderr

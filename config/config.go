@@ -6,10 +6,15 @@ import (
 	"os"
 	"strings"
 
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 )
 
-type SshdConfig struct {
+type Fuse struct {
+	GitRepoDir string `yaml:"repo_dir"`
+	Debug      bool
+}
+
+type Sshd struct {
 	ListenHost string `yaml:"host"`
 	ListenPort int32  `yaml:"port"`
 	PrivateKey string `yaml:"private_key"`
@@ -17,31 +22,32 @@ type SshdConfig struct {
 	ShellPath  string `yaml:"shell"`
 }
 
-type SyslogConfig struct {
+type Syslog struct {
 	Protocol string
 	Host     string
 	Level    string
 	Tag      string
 }
 
-type LogConfig struct {
+type Log struct {
 	Local  string
 	Level  string
-	Syslog SyslogConfig
+	Syslog Syslog
 }
 
-type EnvironmentalConfig struct {
-	Sshd SshdConfig
-	Log  LogConfig
+type Environmental struct {
+	Sshd Sshd
+	Fuse Fuse
+	Log  Log
 }
 
 type Config struct {
-	Development EnvironmentalConfig
-	Production  EnvironmentalConfig
-	Test        EnvironmentalConfig
+	Development Environmental
+	Production  Environmental
+	Test        Environmental
 }
 
-var Current *EnvironmentalConfig
+var Current *Environmental
 var Candidates = []string{
 	os.Getenv("PAGES_CONFIG"),
 	"/etc/pages.yml",
