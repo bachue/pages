@@ -44,7 +44,7 @@ func New(config *conf.Log) (Logger, error) {
 	} else if strings.ToLower(config.Local) == "stdout" {
 		logger.Out = os.Stdout
 	} else {
-		file, err := os.Open(config.Local)
+		file, err := os.OpenFile(config.Local, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 		if err != nil {
 			return nil, err
 		}
