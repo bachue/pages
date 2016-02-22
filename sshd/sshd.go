@@ -17,13 +17,13 @@ import (
 )
 
 type Server struct {
-	Config       *config.SshdConfig
+	Config       *config.Sshd
 	ServerConfig *ssh.ServerConfig
 	Logger       log_driver.Logger
 	ClientCount  int32
 }
 
-func NewServer(sshdConfig *config.SshdConfig, logger log_driver.Logger) (*Server, error) {
+func NewServer(sshdConfig *config.Sshd, logger log_driver.Logger) (*Server, error) {
 	serverConfig, err := getSshServerConfig(sshdConfig)
 	if err != nil {
 		return nil, err
@@ -266,7 +266,7 @@ func (server *Server) getHostPort() string {
 	return host_port
 }
 
-func getSshServerConfig(sshdConfig *config.SshdConfig) (*ssh.ServerConfig, error) {
+func getSshServerConfig(sshdConfig *config.Sshd) (*ssh.ServerConfig, error) {
 	// In the latest version of crypto/ssh (after Go 1.3), the SSH server type has been removed
 	// in favour of an SSH connection type. A ssh.ServerConn is created by passing an existing
 	// net.Conn and a ssh.ServerConfig to ssh.NewServerConn, in effect, upgrading the net.Conn
@@ -303,7 +303,7 @@ func getSshServerConfig(sshdConfig *config.SshdConfig) (*ssh.ServerConfig, error
 	return &serverConfig, nil
 }
 
-func getPrivateKey(sshdConfig *config.SshdConfig) (ssh.Signer, error) {
+func getPrivateKey(sshdConfig *config.Sshd) (ssh.Signer, error) {
 	private, err := ssh.ParsePrivateKey([]byte(sshdConfig.PrivateKey))
 	return private, err
 }

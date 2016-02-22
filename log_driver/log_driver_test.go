@@ -10,7 +10,7 @@ import (
 )
 
 func TestNewLoggerWithoutSyslog(t *testing.T) {
-	logConfig := &config.LogConfig{Local: "STDOUT", Level: "WARN"}
+	logConfig := &config.Log{Local: "STDOUT", Level: "WARN"}
 	loggerInterface, err := New(logConfig)
 	assert.Nil(t, err)
 	logger, ok := loggerInterface.(*logrus.Logger)

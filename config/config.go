@@ -56,7 +56,7 @@ var Candidates = []string{
 	"etc/pages.yaml",
 }
 
-func LoadConfig() error {
+func Load() error {
 	config := Config{}
 	env := getEnvironment()
 	content, err := loadConfigFile()

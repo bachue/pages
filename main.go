@@ -12,7 +12,7 @@ import (
 
 func main() {
 	// TODO: Usage
-	err := config.LoadConfig()
+	err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load config: %s", err)
 	}
@@ -37,7 +37,7 @@ func main() {
 	}()
 
 	go func() {
-		gitfs, err := gitfuse.New(fsConfig, logger)
+		gitfs, err := gitfuse.New(&config.Current.Fuse, logger)
 		if err != nil {
 			logger.Fatalf("Failed to start GitFS: %s", err)
 		}
