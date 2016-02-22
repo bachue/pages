@@ -9,6 +9,7 @@ import (
 	"time"
 
 	conf "github.com/bachue/pages/config"
+	"github.com/bachue/pages/gitfuse/cache"
 	"github.com/bachue/pages/log_driver"
 	"github.com/hanwen/go-fuse/fuse"
 	"github.com/hanwen/go-fuse/fuse/nodefs"
@@ -22,6 +23,7 @@ type GitFs struct {
 	GitFsDir   string
 	server     *fuse.Server
 	logger     log_driver.Logger
+	cache      *cache.Cache
 }
 
 func New(config *conf.Fuse, logger log_driver.Logger) (*GitFs, error) {
@@ -41,6 +43,12 @@ func New(config *conf.Fuse, logger log_driver.Logger) (*GitFs, error) {
 	logger.Debugf("Mount GitFs on %s", gitfsDir)
 	gitfs.server = server
 	server.SetDebug(config.Debug)
+
+	gitfs.cache, err = cache.New(1024)
+	if err != nil {
+		logger.Errorf("Failed to initialize object cache due to %s\n", err)
+		return nil, err
+	}
 
 	return gitfs, nil
 }
@@ -105,11 +113,10 @@ func (gitfs *GitFs) OpenDir(name string, _ *fuse.Context) ([]fuse.DirEntry, fuse
 }
 
 func (gitfs *GitFs) openGitDir(repoPath string, path string) ([]fuse.DirEntry, fuse.Status) {
-	repo, _, _, tree, cleaner, err := gitfs.getMasterTreeFromRepo(repoPath)
+	repo, _, _, tree, err := gitfs.getMasterTreeFromRepo(repoPath)
 	if err != nil {
 		return nil, fuse.EPERM
 	}
-	defer cleaner()
 
 	if path != "" {
 		entry, err := tree.EntryByPath(path)
@@ -163,11 +170,10 @@ func (gitfs *GitFs) GetAttr(name string, _ *fuse.Context) (attr *fuse.Attr, stat
 }
 
 func (gitfs *GitFs) getGitAttrByPath(repoPath string, path string) (*fuse.Attr, fuse.Status) {
-	repo, _, _, tree, cleaner, err := gitfs.getMasterTreeFromRepo(repoPath)
+	repo, _, _, tree, err := gitfs.getMasterTreeFromRepo(repoPath)
 	if err != nil {
 		return nil, fuse.EPERM
 	}
-	defer cleaner()
 
 	repoInfo, err := os.Stat(repoPath)
 	if err != nil {
@@ -230,7 +236,24 @@ func (gitfs *GitFs) getGitAttrByPath(repoPath string, path string) (*fuse.Attr, 
 	return &attr, fuse.OK
 }
 
-func (gitfs *GitFs) getMasterTreeFromRepo(repoPath string) (*libgit2.Repository, *libgit2.Branch, *libgit2.Commit, *libgit2.Tree, func(), error) {
+func (gitfs *GitFs) getMasterTreeFromRepo(repoPath string) (*libgit2.Repository, *libgit2.Branch, *libgit2.Commit, *libgit2.Tree, error) {
+	entry, found := gitfs.cache.Get(repoPath)
+	if found {
+		gitfs.logger.Debugf("Cache hits on Git Repository %s", repoPath)
+		return entry.Repo, entry.Branch, entry.Commit, entry.Tree, nil
+	}
+	gitfs.logger.Debugf("Cache failed to hit on Git Repository %s", repoPath)
+	repo, branch, commit, tree, cleaner, err := gitfs.getMasterTreeFromRepoWithoutCache(repoPath)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	entry = &cache.CacheEntry{Repo: repo, Branch: branch, Commit: commit, Tree: tree, OnClean: cleaner}
+	gitfs.cache.Add(repoPath, entry)
+	gitfs.logger.Debugf("Cache added for Git Repository %s", repoPath)
+	return repo, branch, commit, tree, err
+}
+
+func (gitfs *GitFs) getMasterTreeFromRepoWithoutCache(repoPath string) (*libgit2.Repository, *libgit2.Branch, *libgit2.Commit, *libgit2.Tree, func(), error) {
 	repo, err := libgit2.OpenRepository(repoPath)
 	if err != nil {
 		gitfs.logger.Errorf("Failed to open Git Repository %s due to %s", repoPath, err)
