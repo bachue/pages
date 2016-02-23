@@ -37,14 +37,14 @@ test:
 	Candidates = []string{configPath}
 
 	os.Setenv("PAGES_ENV", "production")
-	err = LoadConfig()
+	err = Load()
 	assert.Nil(t, err)
 	assert.EqualValues(t, Current.Sshd.ListenHost, "configdb")
 	assert.EqualValues(t, Current.Sshd.ListenPort, 22)
 	assert.EqualValues(t, Current.Sshd.PrivateKey, "PRIVATEKEYPRIVATEKEYPRIVATEKEY1")
 
 	os.Setenv("PAGES_ENV", "development")
-	err = LoadConfig()
+	err = Load()
 	assert.Nil(t, err)
 	assert.EqualValues(t, Current.Sshd.ListenHost, "localhost")
 	assert.EqualValues(t, Current.Sshd.ListenPort, 2200)

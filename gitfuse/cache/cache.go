@@ -2,7 +2,7 @@ package cache
 
 import (
 	lru "github.com/hashicorp/golang-lru/simplelru"
-	libgit2 "gopkg.in/libgit2/git2go.v22"
+	libgit2 "gopkg.in/libgit2/git2go.v23"
 )
 
 type Cleaner func()

@@ -1,6 +1,10 @@
 language: go
 
+sudo: required
 go:
   - 1.5.3
+before_install:
+  - sudo scripts/travis.sh
 install:
-  - go get -t ./...
+  - go get -v -t ./...
+  - sudo chmod a+r /etc/fuse.conf

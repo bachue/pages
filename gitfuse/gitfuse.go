@@ -14,7 +14,7 @@ import (
 	"github.com/hanwen/go-fuse/fuse"
 	"github.com/hanwen/go-fuse/fuse/nodefs"
 	"github.com/hanwen/go-fuse/fuse/pathfs"
-	libgit2 "gopkg.in/libgit2/git2go.v22"
+	libgit2 "gopkg.in/libgit2/git2go.v23"
 )
 
 type GitFs struct {
@@ -242,7 +242,7 @@ func (gitfs *GitFs) getMasterTreeFromRepo(repoPath string) (*libgit2.Repository,
 		gitfs.logger.Debugf("Cache hits on Git Repository %s", repoPath)
 		return entry.Repo, entry.Branch, entry.Commit, entry.Tree, nil
 	}
-	gitfs.logger.Debugf("Cache failed to hit on Git Repository %s", repoPath)
+	gitfs.logger.Debugf("Cache miss on Git Repository %s", repoPath)
 	repo, branch, commit, tree, cleaner, err := gitfs.getMasterTreeFromRepoWithoutCache(repoPath)
 	if err != nil {
 		return nil, nil, nil, nil, err

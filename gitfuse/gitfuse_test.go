@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"syscall"
 	"testing"
 
 	"github.com/bachue/pages/config"
@@ -37,15 +38,35 @@ func TestGitFsReadSecondLayer(t *testing.T) {
 	assert.EqualValues(t, len(files), 2)
 	assert.EqualValues(t, files[0].Name(), "example-app")
 	assert.True(t, files[0].Mode().IsDir())
+
+	stat, ok := files[0].Sys().(*syscall.Stat_t)
+	assert.True(t, ok)
+	assert.EqualValues(t, stat.Nlink, 5)
+
 	assert.EqualValues(t, files[1].Name(), "flightjs")
 	assert.True(t, files[1].Mode().IsDir())
+
+	stat, ok = files[1].Sys().(*syscall.Stat_t)
+	assert.True(t, ok)
+	assert.EqualValues(t, stat.Nlink, 5)
 
 	files, err = ioutil.ReadDir(gitfs.GitFsDir + "/pry")
 	assert.Nil(t, err)
 
-	assert.EqualValues(t, len(files), 1)
+	assert.EqualValues(t, len(files), 2)
 	assert.EqualValues(t, files[0].Name(), "pry")
 	assert.True(t, files[0].Mode().IsDir())
+
+	stat, ok = files[0].Sys().(*syscall.Stat_t)
+	assert.True(t, ok)
+	assert.EqualValues(t, stat.Nlink, 7)
+
+	assert.EqualValues(t, files[1].Name(), "ruby-pry")
+	assert.True(t, files[1].Mode().IsDir())
+
+	stat, ok = files[1].Sys().(*syscall.Stat_t)
+	assert.True(t, ok)
+	assert.EqualValues(t, stat.Nlink, 5)
 
 	files, err = ioutil.ReadDir(gitfs.GitFsDir + "/remnux")
 	assert.Nil(t, err)
@@ -53,6 +74,10 @@ func TestGitFsReadSecondLayer(t *testing.T) {
 	assert.EqualValues(t, len(files), 1)
 	assert.EqualValues(t, files[0].Name(), "remnux")
 	assert.True(t, files[0].Mode().IsDir())
+
+	stat, ok = files[0].Sys().(*syscall.Stat_t)
+	assert.True(t, ok)
+	assert.EqualValues(t, stat.Nlink, 5)
 }
 
 func TestGitFsReadThirdLayer(t *testing.T) {
@@ -88,12 +113,31 @@ func TestGitFsReadThirdLayer(t *testing.T) {
 	assert.False(t, files[10].Mode().IsDir())
 	assert.EqualValues(t, files[11].Name(), "test")
 	assert.True(t, files[11].Mode().IsDir())
+
+	files, err = ioutil.ReadDir(gitfs.GitFsDir + "/pry/ruby-pry/bin")
+	assert.Nil(t, err)
+
+	assert.EqualValues(t, len(files), 1)
+
+	assert.EqualValues(t, files[0].Name(), "pry")
+	assert.False(t, files[0].Mode().IsDir())
+	assert.EqualValues(t, files[0].Mode().Perm(), 0555)
 }
 
-// func TestGitFsReadFourthLayer(t *testing.T) {
-// 	gitfs, cleaner := setupGitFsTest(t)
-// 	defer cleaner()
-// }
+func TestGitFsReadFourthLayer(t *testing.T) {
+	gitfs, cleaner := setupGitFsTest(t)
+	defer cleaner()
+
+	files, err := ioutil.ReadDir(gitfs.GitFsDir + "/flightjs/flightjs/css")
+	assert.Nil(t, err)
+
+	assert.EqualValues(t, len(files), 2)
+
+	assert.EqualValues(t, files[0].Name(), "main.css")
+	assert.False(t, files[0].Mode().IsDir())
+	assert.EqualValues(t, files[1].Name(), "normalize.min.css")
+	assert.False(t, files[1].Mode().IsDir())
+}
 
 func setupGitFsTest(t *testing.T) (*GitFs, func()) {
 	dir, err := ioutil.TempDir("", "gitfs-test")
@@ -104,7 +148,7 @@ func setupGitFsTest(t *testing.T) (*GitFs, func()) {
 	assert.Nil(t, err)
 
 	fsConfig := &config.Fuse{GitRepoDir: dir, Debug: false}
-	logConfig := &config.Log{Local: "/tmp/gitfuse_test.log", Level: "DEBUG"}
+	logConfig := &config.Log{Local: "STDERR", Level: "WARN"}
 	logger, err := log_driver.New(logConfig)
 	assert.Nil(t, err)
 	gitfs, err := New(fsConfig, logger)
