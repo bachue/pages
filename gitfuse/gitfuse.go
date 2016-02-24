@@ -169,6 +169,20 @@ func (gitfs *GitFs) GetAttr(name string, _ *fuse.Context) (attr *fuse.Attr, stat
 	return
 }
 
+func (gitfs *GitFs) GetXAttr(name string, attr string, _ *fuse.Context) ([]byte, fuse.Status) {
+	defer gitfs.showPanicError()
+	user, repo, path := splitPath(name)
+	gitfs.logger.Debugf("GetXAttr: user = %s, repo = %s, path = %s", user, repo, path)
+	return nil, fuse.ENODATA
+}
+
+func (gitfs *GitFs) ListXAttr(name string, _ *fuse.Context) ([]string, fuse.Status) {
+	defer gitfs.showPanicError()
+	user, repo, path := splitPath(name)
+	gitfs.logger.Debugf("ListXAttr: user = %s, repo = %s, path = %s", user, repo, path)
+	return []string{}, fuse.OK
+}
+
 func (gitfs *GitFs) getGitAttrByPath(repoPath string, path string) (*fuse.Attr, fuse.Status) {
 	repo, _, _, tree, err := gitfs.getMasterTreeFromRepo(repoPath)
 	if err != nil {
@@ -256,7 +270,7 @@ func (gitfs *GitFs) getMasterTreeFromRepo(repoPath string) (*libgit2.Repository,
 func (gitfs *GitFs) getMasterTreeFromRepoWithoutCache(repoPath string) (*libgit2.Repository, *libgit2.Branch, *libgit2.Commit, *libgit2.Tree, func(), error) {
 	repo, err := libgit2.OpenRepository(repoPath)
 	if err != nil {
-		gitfs.logger.Errorf("Failed to open Git Repository %s due to %s", repoPath, err)
+		gitfs.logger.Debugf("Failed to open Git Repository %s due to %s", repoPath, err)
 		return nil, nil, nil, nil, nil, err
 	}
 	gitfs.logger.Debugf("Open Git Repository %s", repoPath)

@@ -10,6 +10,7 @@ import (
 	"github.com/bachue/pages/config"
 	"github.com/bachue/pages/log_driver"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/sys/unix"
 )
 
 func TestGitFsReadFirstLayer(t *testing.T) {
@@ -113,15 +114,6 @@ func TestGitFsReadThirdLayer(t *testing.T) {
 	assert.False(t, files[10].Mode().IsDir())
 	assert.EqualValues(t, files[11].Name(), "test")
 	assert.True(t, files[11].Mode().IsDir())
-
-	files, err = ioutil.ReadDir(gitfs.GitFsDir + "/pry/ruby-pry/bin")
-	assert.Nil(t, err)
-
-	assert.EqualValues(t, len(files), 1)
-
-	assert.EqualValues(t, files[0].Name(), "pry")
-	assert.False(t, files[0].Mode().IsDir())
-	assert.EqualValues(t, files[0].Mode().Perm(), 0555)
 }
 
 func TestGitFsReadFourthLayer(t *testing.T) {
@@ -137,6 +129,32 @@ func TestGitFsReadFourthLayer(t *testing.T) {
 	assert.False(t, files[0].Mode().IsDir())
 	assert.EqualValues(t, files[1].Name(), "normalize.min.css")
 	assert.False(t, files[1].Mode().IsDir())
+
+	files, err = ioutil.ReadDir(gitfs.GitFsDir + "/pry/ruby-pry/bin")
+	assert.Nil(t, err)
+
+	assert.EqualValues(t, len(files), 1)
+
+	assert.EqualValues(t, files[0].Name(), "pry")
+	assert.False(t, files[0].Mode().IsDir())
+	assert.EqualValues(t, files[0].Mode().Perm(), 0555)
+}
+
+func TestGitFsXAttr(t *testing.T) {
+	gitfs, cleaner := setupGitFsTest(t)
+	defer cleaner()
+
+	xattrs := make([]byte, 0)
+	sz, err := unix.Listxattr(gitfs.GitFsDir+"/pry/ruby-pry/bin/pry", xattrs)
+	assert.Nil(t, err)
+	assert.EqualValues(t, sz, 0)
+	assert.Len(t, xattrs, 0)
+
+	xattr := make([]byte, 0)
+	sz, err = unix.Getxattr(gitfs.GitFsDir+"/pry/ruby-pry/bin/pry", "a.b.c", xattr)
+	assert.EqualValues(t, err, unix.ENODATA)
+	assert.EqualValues(t, sz, -1)
+	assert.Len(t, xattr, 0)
 }
 
 func setupGitFsTest(t *testing.T) (*GitFs, func()) {
