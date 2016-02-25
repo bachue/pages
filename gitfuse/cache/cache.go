@@ -1,6 +1,8 @@
 package cache
 
 import (
+	"runtime"
+
 	lru "github.com/hashicorp/golang-lru/simplelru"
 	libgit2 "gopkg.in/libgit2/git2go.v23"
 )
@@ -24,6 +26,7 @@ func New(size int) (*Cache, error) {
 	if err != nil {
 		return nil, err
 	}
+	runtime.SetFinalizer(list, (*lru.LRU).Purge)
 	return &Cache{list: list}, nil
 }
 
@@ -42,6 +45,10 @@ func (cache *Cache) Get(key string) (*CacheEntry, bool) {
 
 func (cache *Cache) Remove(key string) bool {
 	return cache.list.Remove(key)
+}
+
+func (cache *Cache) Purge() {
+	cache.list.Purge()
 }
 
 func clean(_ interface{}, value interface{}) {

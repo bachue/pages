@@ -169,20 +169,6 @@ func (gitfs *GitFs) GetAttr(name string, _ *fuse.Context) (attr *fuse.Attr, stat
 	return
 }
 
-func (gitfs *GitFs) GetXAttr(name string, attr string, _ *fuse.Context) ([]byte, fuse.Status) {
-	defer gitfs.showPanicError()
-	user, repo, path := splitPath(name)
-	gitfs.logger.Debugf("GetXAttr: user = %s, repo = %s, path = %s", user, repo, path)
-	return nil, fuse.ENODATA
-}
-
-func (gitfs *GitFs) ListXAttr(name string, _ *fuse.Context) ([]string, fuse.Status) {
-	defer gitfs.showPanicError()
-	user, repo, path := splitPath(name)
-	gitfs.logger.Debugf("ListXAttr: user = %s, repo = %s, path = %s", user, repo, path)
-	return []string{}, fuse.OK
-}
-
 func (gitfs *GitFs) getGitAttrByPath(repoPath string, path string) (*fuse.Attr, fuse.Status) {
 	repo, _, _, tree, err := gitfs.getMasterTreeFromRepo(repoPath)
 	if err != nil {
@@ -250,6 +236,54 @@ func (gitfs *GitFs) getGitAttrByPath(repoPath string, path string) (*fuse.Attr, 
 	return &attr, fuse.OK
 }
 
+func (gitfs *GitFs) GetXAttr(name string, attr string, _ *fuse.Context) ([]byte, fuse.Status) {
+	defer gitfs.showPanicError()
+	user, repo, path := splitPath(name)
+	gitfs.logger.Debugf("GetXAttr: user = %s, repo = %s, path = %s", user, repo, path)
+	return nil, fuse.ENODATA
+}
+
+func (gitfs *GitFs) ListXAttr(name string, _ *fuse.Context) ([]string, fuse.Status) {
+	defer gitfs.showPanicError()
+	user, repo, path := splitPath(name)
+	gitfs.logger.Debugf("ListXAttr: user = %s, repo = %s, path = %s", user, repo, path)
+	return []string{}, fuse.OK
+}
+
+func (gitfs *GitFs) Readlink(name string, _ *fuse.Context) (string, fuse.Status) {
+	defer gitfs.showPanicError()
+	user, repo, path := splitPath(name)
+	gitfs.logger.Debugf("Readlink: user = %s, repo = %s, path = %s", user, repo, path)
+	if /* user == "" || */ repo == "" {
+		return "", fuse.EINVAL
+	}
+
+	repoPath := gitfs.GitRepoDir + "/" + user + "/" + repo + ".git"
+	gitRepo, _, _, tree, err := gitfs.getMasterTreeFromRepo(repoPath)
+	if err != nil {
+		return "", fuse.EPERM
+	}
+
+	entry, err := tree.EntryByPath(path)
+	if err != nil {
+		gitfs.logger.Debugf("Cannot find path %s from tree %s of Git Repository %s due to %s", path, tree.Id().String(), repoPath, err)
+		return "", fuse.ENOENT
+	}
+	gitfs.logger.Debugf("Found path %s from tree %s of Git Repository %s", path, tree.Id().String(), repoPath)
+
+	if entry.Type == libgit2.ObjectBlob && entry.Filemode == libgit2.FilemodeLink {
+		blob, err := gitRepo.LookupBlob(entry.Id)
+		if err != nil {
+			gitfs.logger.Errorf("Failed to find blob %s (path = %s) from Git Repository %s", entry.Id, path, repoPath)
+			return "", fuse.EPERM
+		}
+		defer blob.Free()
+		return string(blob.Contents()), fuse.OK
+	} else {
+		return "", fuse.EINVAL
+	}
+}
+
 func (gitfs *GitFs) getMasterTreeFromRepo(repoPath string) (*libgit2.Repository, *libgit2.Branch, *libgit2.Commit, *libgit2.Tree, error) {
 	entry, found := gitfs.cache.Get(repoPath)
 	if found {
@@ -288,7 +322,7 @@ func (gitfs *GitFs) getMasterTreeFromRepoWithoutCache(repoPath string) (*libgit2
 		repo.Free()
 		return nil, nil, nil, nil, nil, err
 	}
-	gitfs.logger.Debugf("Got commit from master branch of Git Repository %s", repoPath)
+	gitfs.logger.Debugf("Got commit %s from master branch of Git Repository %s", targetCommit.Id().String(), repoPath)
 	targetTree, err := targetCommit.Tree()
 	if err != nil {
 		gitfs.logger.Errorf("Failed to get tree of commit %s from Git Repository %s due to %s", targetCommit.Id().String(), repoPath, err)
@@ -297,7 +331,7 @@ func (gitfs *GitFs) getMasterTreeFromRepoWithoutCache(repoPath string) (*libgit2
 		repo.Free()
 		return nil, nil, nil, nil, nil, err
 	}
-	gitfs.logger.Debugf("Got tree from master branch of Git Repository %s", repoPath)
+	gitfs.logger.Debugf("Got tree %s from master branch of Git Repository %s", targetTree.Id().String(), repoPath)
 	cleaner := func() {
 		targetTree.Free()
 		targetCommit.Free()

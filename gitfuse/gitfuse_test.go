@@ -6,11 +6,14 @@ import (
 	"os/exec"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/bachue/pages/config"
 	"github.com/bachue/pages/log_driver"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/unix"
+
+	libgit2 "gopkg.in/libgit2/git2go.v23"
 )
 
 func TestGitFsReadFirstLayer(t *testing.T) {
@@ -150,11 +153,114 @@ func TestGitFsXAttr(t *testing.T) {
 	assert.EqualValues(t, sz, 0)
 	assert.Len(t, xattrs, 0)
 
+	sz, err = unix.Listxattr(gitfs.GitFsDir+"/pry/ruby-pry/bin/pry.unexisted", xattrs)
+	assert.EqualValues(t, err, unix.ENOENT)
+	assert.EqualValues(t, sz, -1)
+	assert.Len(t, xattrs, 0)
+
 	xattr := make([]byte, 0)
 	sz, err = unix.Getxattr(gitfs.GitFsDir+"/pry/ruby-pry/bin/pry", "a.b.c", xattr)
 	assert.EqualValues(t, err, unix.ENODATA)
 	assert.EqualValues(t, sz, -1)
 	assert.Len(t, xattr, 0)
+
+	sz, err = unix.Getxattr(gitfs.GitFsDir+"/pry/ruby-pry/bin/pry.unexisted", "a.b.c", xattr)
+	assert.EqualValues(t, err, unix.ENOENT)
+	assert.EqualValues(t, sz, -1)
+	assert.Len(t, xattr, 0)
+}
+
+func TestGitFsReadLink(t *testing.T) {
+	gitfs, cleaner := setupGitFsTest(t)
+	defer cleaner()
+
+	realpath, err := os.Readlink(gitfs.GitFsDir + "/pry")
+	assert.NotNil(t, err)
+	pathError, ok := err.(*os.PathError)
+	assert.True(t, ok)
+	assert.EqualValues(t, pathError.Err, unix.EINVAL)
+
+	realpath, err = os.Readlink(gitfs.GitFsDir + "/pry/ruby-pry")
+	assert.NotNil(t, err)
+	pathError, ok = err.(*os.PathError)
+	assert.True(t, ok)
+	assert.EqualValues(t, pathError.Err, unix.EINVAL)
+
+	realpath, err = os.Readlink(gitfs.GitFsDir + "/pry/ruby-pry/Gemfile")
+	assert.NotNil(t, err)
+	pathError, ok = err.(*os.PathError)
+	assert.True(t, ok)
+	assert.EqualValues(t, pathError.Err, unix.EINVAL)
+
+	realpath, err = os.Readlink(gitfs.GitFsDir + "/pry/ruby-pry/bin")
+	assert.NotNil(t, err)
+	pathError, ok = err.(*os.PathError)
+	assert.True(t, ok)
+	assert.EqualValues(t, pathError.Err, unix.EINVAL)
+
+	realpath, err = os.Readlink(gitfs.GitFsDir + "/pry/ruby-pry/bin/pry")
+	assert.NotNil(t, err)
+	pathError, ok = err.(*os.PathError)
+	assert.True(t, ok)
+	assert.EqualValues(t, pathError.Err, unix.EINVAL)
+
+	realpath, err = os.Readlink(gitfs.GitFsDir + "/pry/ruby-pry/bin/pry.unexisted")
+	assert.NotNil(t, err)
+	pathError, ok = err.(*os.PathError)
+	assert.True(t, ok)
+	assert.EqualValues(t, pathError.Err, unix.ENOENT)
+
+	realpath, err = os.Readlink(gitfs.GitFsDir + "/pry/ruby-pry/bin/pry.unexisted")
+	assert.NotNil(t, err)
+	pathError, ok = err.(*os.PathError)
+	assert.True(t, ok)
+	assert.EqualValues(t, pathError.Err, unix.ENOENT)
+
+	repo, err := libgit2.OpenRepository(gitfs.GitRepoDir + "/pry/ruby-pry.git")
+	assert.Nil(t, err)
+	defer repo.Free()
+
+	newBlobContent := []byte("bin/pry")
+	newBlobId, err := repo.CreateBlobFromBuffer(newBlobContent)
+	assert.Nil(t, err)
+
+	branch, err := repo.LookupBranch("master", libgit2.BranchLocal)
+	assert.Nil(t, err)
+	defer branch.Free()
+
+	parentCommit, err := repo.LookupCommit(branch.Target())
+	assert.Nil(t, err)
+	defer parentCommit.Free()
+
+	parentTree, err := parentCommit.Tree()
+	assert.Nil(t, err)
+	defer parentTree.Free()
+
+	builder, err := repo.TreeBuilderFromTree(parentTree)
+	assert.Nil(t, err)
+	defer builder.Free()
+
+	err = builder.Insert("pry.symlink", newBlobId, int(libgit2.FilemodeLink))
+	assert.Nil(t, err)
+
+	newTreeId, err := builder.Write()
+	assert.Nil(t, err)
+
+	newTree, err := repo.LookupTree(newTreeId)
+	assert.Nil(t, err)
+	defer newTree.Free()
+
+	_, err = repo.CreateCommit(
+		branch.Reference.Name(),
+		&libgit2.Signature{Name: "testuser", Email: "test@qiniu.com", When: time.Now()},
+		&libgit2.Signature{Name: "testuser", Email: "test@qiniu.com", When: time.Now()},
+		"This is a symlink test", newTree, parentCommit)
+	assert.Nil(t, err)
+	gitfs.cache.Purge() // Refresh Cache
+
+	realpath, err = os.Readlink(gitfs.GitFsDir + "/pry/ruby-pry/pry.symlink")
+	assert.Nil(t, err)
+	assert.EqualValues(t, realpath, "bin/pry")
 }
 
 func setupGitFsTest(t *testing.T) (*GitFs, func()) {
